@@ -1,0 +1,26 @@
+.gitattributes
+
+# Godot 4+ specific ignores
+.godot/
+/android/
+# Godot-specific files
+.import/
+export/
+# User-specific files
+.idea/
+.vscode/
+*.godot
+# Temporary files
+*.tmp
+*.swp
+*.bak
+*.log
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# Godot Cache Files
+/.godot/
+# Other
+**/*.import

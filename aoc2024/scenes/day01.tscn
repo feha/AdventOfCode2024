@@ -1,0 +1,65 @@
+[gd_scene load_steps=5 format=3 uid="uid://bgd37mcdtfuhx"]
+
+[ext_resource type="Shader" path="res://scenes/day01/day01.gdshader" id="1_cm7ql"]
+[ext_resource type="Script" path="res://scenes/day01/shader.gd" id="2_44fh1"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ssbv6"]
+shader = ExtResource("1_cm7ql")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_v3hg0"]
+shader = ExtResource("1_cm7ql")
+
+[node name="Day01" type="Node2D"]
+position = Vector2(373, 199)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+visible = false
+
+[node name="Control" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer/Control"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -92.5
+offset_top = -11.5
+offset_right = 92.5
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="CanvasLayer/Control/PanelContainer"]
+layout_mode = 2
+text = "DAY 01 PLACEHOLDER!!!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CanvasLayer2" type="CanvasLayer" parent="."]
+
+[node name="Shader" type="Control" parent="CanvasLayer2"]
+visible = false
+material = SubResource("ShaderMaterial_ssbv6")
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="CanvasLayer2"]
+material = SubResource("ShaderMaterial_v3hg0")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_44fh1")
