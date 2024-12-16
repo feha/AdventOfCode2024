@@ -18,7 +18,7 @@ void vertex() {
 
 void fragment() {
     //vec2 uv = FRAGCOORD.xy / SCREEN_PIXEL_SIZE;
-    
+
     // Get the pixel coordinates in the range [0,1] based on the fragment position
     vec2 uv = FRAGCOORD.xy * SCREEN_PIXEL_SIZE.xy;
 

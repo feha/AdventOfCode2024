@@ -16,14 +16,20 @@ layout(binding = 2) restrict buffer ChargeVelocities {
 layout(binding = 3) restrict buffer ChargeStrengths {
     float charge_strs[];
 };
+layout(binding = 4) restrict buffer ChargeChildrenOffsets {
+    uvec2 charge_children_offsets[];
+};
+layout(binding = 5) restrict buffer ChargeChildrenPos {
+    vec2 charge_children_pos[];
+};
 
 // Uniform block for int parameters
-layout(binding = 4) uniform IntParameters {
+layout(binding = 6) uniform IntParameters {
     int num_charges;    // Number of charges, length of charge_idx
 };
 
 // Uniform block for scalar field parameters
-layout(binding = 5) uniform FloatParameters {
+layout(binding = 7) uniform FloatParameters {
     float deltatime;    // time since last execution. -1 if it is the first time.
     float threshold;    // Potential threshold for interaction
     float pixels_per_unit;    // Number of pixels per distance-unit (should maybe be 2 dimensions instead?)
@@ -36,6 +42,10 @@ void move_charge(uint idx);
 void drag_charge(uint idx);
 void tick_charge(uint idx);
 
+
+float epsilon = 1.0;
+float scale_factor = 500.0;
+float scale_factor_inv = 1.0 / scale_factor;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
@@ -62,11 +72,25 @@ void main() {
 
     // After also having handled interactions for later indices, all interactions are finished now.
     tick_charge(idx1);
+    
+    uvec2 children = charge_children_offsets[idx1];
+    uint arr_end = uint(children.x + children.y);
+    for (uint j = children.x; j < arr_end; j++) {
+        vec2 owner_pos = charge_poss[idx1] * scale_factor;
+        float owner_mass = charge_strs[idx1] * scale_factor;
+        vec2 child_pos = charge_children_pos[j]* scale_factor; // packet's strength = 1.0
+        // TODO Move towards owner.
+        vec2 err = owner_pos - child_pos;
+        float lsqr = max(dot(err, err), epsilon);
+        float inv_l = inversesqrt(lsqr);
+        float inv_l_cubed = inv_l * inv_l * inv_l;
+        charge_children_pos[j] += err * owner_mass * inv_l_cubed * 1.0;
+        // // TODO Move along gradient.
+        // charge_children_pos[j] = charge_children_pos[j] + gradient;
+    }
 }
 
 
-float scale_factor = 500.0;
-float scale_factor_inv = 1.0 / scale_factor;
 void calculate_pair(in uint idx1, in uint idx2, out vec2 a1, out vec2 a2) {
     vec2 pos1 = charge_poss[idx1] * scale_factor;
     // vec2 vel1 = charge_vels[idx1];
@@ -77,7 +101,6 @@ void calculate_pair(in uint idx1, in uint idx2, out vec2 a1, out vec2 a2) {
     float mass2 = charge_strs[idx2];
 
     float k = 1.0;
-    float epsilon = 1.0;
     vec2 err = pos1 - pos2;
     float lsqr = max(dot(err, err), epsilon); // or addition
     float inv_l = inversesqrt(lsqr);

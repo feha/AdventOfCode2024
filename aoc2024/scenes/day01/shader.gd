@@ -182,7 +182,9 @@ var deltatime : float = -1
 var charge_idxs : Array = []  # Array of idxs (think ECS)
 var charge_positions : Array = []  # Array of Vector2s
 var charge_velocities : Array = []
-var charge_strengths : Array = []  # Array of 
+var charge_strengths : Array = []
+var charge_children_offsets : Array = []
+var charge_children_pos : Array = []
 
 var output_array : PackedFloat32Array  # Output buffer for the results
 
@@ -209,6 +211,8 @@ var charge_idxs_param : ShaderParam  # Buffer for charge positions
 var charge_positions_param : ShaderParam  # Buffer for charge positions
 var charge_velocities_param : ShaderParam  # Buffer for charge positions
 var charge_strengths_param : ShaderParam  # Buffer for charge strengths
+var charge_children_offsets_param : ShaderParam  # Buffer for charge strengths
+var charge_children_pos_param : ShaderParam  # Buffer for charge strengths
 var int_block_param : ShaderParam  # Buffer for ints
 var float_block_param : ShaderParam  # Buffer for floats
 var output_param : ShaderParam  # Buffer for output
@@ -269,12 +273,18 @@ func _ready():
     charge_positions.resize(num_charges)
     charge_velocities.resize(num_charges)
     charge_strengths.resize(num_charges)
+    charge_children_offsets.resize(num_charges)
     
+    var total_str = 0.0
     for i in range(num_charges):
         charge_idxs[i] = i
         charge_positions[i] = Vector2(randf_range(0, 1), randf_range(0, 1))  # Random position
         charge_velocities[i] = Vector2(0,0)#Vector2(randf_range(0, 1), randf_range(0, 1))  # Random velocity
-        charge_strengths[i] = max_charge#randf_range(max_charge / 10.0, max_charge)  # Random strength
+        charge_strengths[i] = randf_range(max_charge / 10.0, max_charge)  # Random strength
+        total_str =  charge_strengths[i]
+        charge_children_offsets[i] = Vector2i(0,0)
+    
+    charge_children_pos.resize(num_charges*total_str) #huge buffer, but never need to size up
     
     #print(charge_positions)
     #print(charge_strengths)
@@ -434,6 +444,8 @@ func _setup_charge_buffers():
     charge_positions_param = create_param.call(PackedVector2Array(charge_positions))
     charge_velocities_param = create_param.call(PackedVector2Array(charge_velocities))
     charge_strengths_param = create_param.call(PackedFloat32Array(charge_strengths))
+    charge_children_offsets_param = create_param.call(PackedVector2Array(charge_children_offsets))
+    charge_children_pos_param = create_param.call(PackedVector2Array(charge_children_pos))
     # And create uniforms
     int_block_param = create_param.call(PackedInt32Array([num_charges, output_dim.x, output_dim.y, 0]), RenderingDevice.UNIFORM_TYPE_UNIFORM_BUFFER)
     float_block_param = create_param.call(PackedFloat32Array([deltatime, threshold_potential, output_pixels_per_unit, 0]), RenderingDevice.UNIFORM_TYPE_UNIFORM_BUFFER)
@@ -537,6 +549,8 @@ func _setup_charge_uniforms():
         charge_positions_param,
         charge_velocities_param,
         charge_strengths_param,
+        charge_children_offsets_param,
+        charge_children_pos_param,
         int_block_param,
         float_block_param,
         #output_param,
@@ -549,6 +563,8 @@ func _setup_charge_uniforms():
         charge_positions_param,
         #charge_velocities_param,
         charge_strengths_param,
+        charge_children_offsets_param,
+        charge_children_pos_param,
         int_block_param,
         float_block_param,
         output_param,
@@ -568,6 +584,8 @@ func _setup_charge_uniforms():
         charge_positions_param,
         charge_velocities_param,
         charge_strengths_param,
+        charge_children_offsets_param,
+        charge_children_pos_param,
         ShaderParam.new([output_texture_rid, output_sampler_rid], RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE),
         int_block_param,
         #float_block_param,

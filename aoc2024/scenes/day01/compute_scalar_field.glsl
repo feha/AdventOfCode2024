@@ -2,7 +2,7 @@
 #version 450
 #extension GL_EXT_shader_atomic_float : enable
 
-layout(local_size_x = 27, local_size_y = 27, local_size_z = 2) in;
+layout(local_size_x = 27, local_size_y = 27, local_size_z = 1) in;
 
 // Buffer for charge properties
 layout(binding = 0) restrict buffer ChargeIndices {
@@ -17,32 +17,43 @@ layout(binding = 1) restrict buffer ChargePositions {
 layout(binding = 2) restrict buffer ChargeStrengths {
     float charge_strs[];
 };
+layout(binding = 3) restrict buffer ChargeChildrenOffsets {
+    uvec2 charge_children_offsets[];
+};
+layout(binding = 4) restrict buffer ChargeChildrenPos {
+    vec2 charge_children_pos[];
+};
 
 // Uniform block for scalar field parameters
-layout(binding = 3) uniform IntParameters {
+layout(binding = 5) uniform IntParameters {
     int num_charges;    // Number of charges
     int res_x;    // Size of the scalar field (image resolution)
     int res_y;    // Size of the scalar field (image resolution)
     // ivec2 output_dim;    // Size of the scalar field (image resolution)
 };
 // Uniform block for scalar field parameters
-layout(binding = 4) uniform FloatParameters {
+layout(binding = 6) uniform FloatParameters {
     float deltatime;    // time since last execution. -1 if it is the first time.
     float threshold;    // Potential threshold for interaction
     float pixels_per_unit;    // Number of pixels per distance-unit (should maybe be 2 dimensions instead?)
 };
 
 // Output array
-layout(binding = 5) buffer Output {
+layout(binding = 7) buffer Output {
     float output_arr[];
 };
 
-layout(binding = 6) writeonly uniform image2D output_image;
+layout(binding = 8) writeonly uniform image2D output_image; // TODO need gradients, and be readable by other shaders
 // layout(binding = 5) writeonly uniform Output2 {
 //     image2D output_image;
 // };
 
 shared float shared_data[gl_WorkGroupSize.x * gl_WorkGroupSize.y];
+
+vec3 calculate_influence(vec2 uv, vec2 pos, float str);
+
+float world_scale = 200.0; // Used to scale up the distances
+float epsilon = 1.0;
 void main() {
     vec2 res = ivec2(res_x, res_y);
 
@@ -75,13 +86,11 @@ void main() {
     // Then offset to center (0.5, 0.5)
     // world_uv = world_uv - (res - res_scaled) / 2.0;
 
-    float potential = 0.0;
+    vec3 potential = vec3(0.0);
     // if (charge_idx == 0)
     //     atomicExchange(output_arr[index.x + index.y * res_x], 0);
     //     shared_data[xy_workgroup_index] = 0.0;
     // barrier();
-    float world_scale = 200.0; // Used to scale up the distances
-    float epsilon = 1.0;
 
     // Compute the potential at the current pixel (UV)
     for (uint i = 0; i < num_charges; i++) {
@@ -90,10 +99,18 @@ void main() {
         vec2 charge_pos = charge_poss[idx];  // Position of the charge
         float charge_strength = charge_strs[idx];  // Strength of the charge
 
-        // Calculate distance from the charge to the current pixel (UV)
-        vec2 err = (uv - charge_pos) * world_scale;
-        float distSqr = dot(err, err);
-        potential += charge_strength / (distSqr + epsilon);  // Simple inverse distance law
+        // // Calculate distance from the charge to the current pixel (UV)
+        // vec2 err = (uv - charge_pos) * world_scale;
+        // float distSqr = dot(err, err);
+        // potential += charge_strength / (distSqr + epsilon);  // Simple inverse distance law
+        potential += calculate_influence(uv, charge_pos, charge_strength);
+
+        uvec2 children = charge_children_offsets[idx];
+        uint arr_end = children.x + children.y;
+        for (uint j = children.x; j < arr_end; j++) {
+            vec2 child_pos = charge_children_pos[j];
+            potential += calculate_influence(uv, child_pos, 1.0);
+        }
     }
     // Compute the potential at the current pixel (UV)
 //     uint size_z = gl_WorkGroupSize.z;
@@ -119,8 +136,8 @@ void main() {
 //     }
 
     // Apply thresholding: potential becomes 0 if below the threshold
-    if (potential < threshold) {
-        potential = 0.0;
+    if (potential.z < threshold) {
+        potential.z = 0.0;
     } else {
         potential = potential;//min(potential, 1000.0);  // Clamp the potential between 0 and 1
     }
@@ -132,6 +149,14 @@ void main() {
 
     // float old_potential = charge_idx != 0 ? output_arr[index.x + index.y * res_x] : 0.0;
     // potential = potential + old_potential;
-    output_arr[index.x + index.y * res_x] = potential;
-    imageStore(output_image, index, vec4(potential, 0.0, 0.0, 1.0) / 100.0);
+    output_arr[index.x + index.y * res_x] = potential.z;
+    imageStore(output_image, index, vec4(potential, 1.0) / 100.0);
+}
+
+vec3 calculate_influence(vec2 uv, vec2 pos, float str) {
+    vec2 err = (pos - uv) * world_scale;
+    float distSqr = dot(err, err);
+    float influence = str / (distSqr + epsilon);
+    vec2 gradient = normalize(err) * influence;
+    return vec3(gradient, influence);
 }
